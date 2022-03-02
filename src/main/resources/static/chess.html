@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.9/vue.min.js"></script>
+    <link href="css/cs.css" rel="stylesheet" type="text/css">
+    <style>
+        #app {
+            background: url("img/bg.jpg") no-repeat 0 200px;
+            background-size: 100% auto;
+        }
+    </style>
+</head>
+<body>
+<div id="app" style="background: url('img/bg.jpg') no-repeat 0 200px;background-size: 100% auto;">
+    <div id="header">
+        <div>
+        </div>
+        <div style="margin: 0 auto;text-align: center;-webkit-flex:2;flex:2;
+        font-size: 25px;font-weight: bold;line-height: 60px;">
+            <div style="display: inline-block;border-bottom: 2px white solid;height: 50px;"
+                 v-bind:style="user.up===1?'border-color: red':'border-color: white'">
+                <span v-bind:style="user.color===1?'color:red':'color:black'">{{user.name}}</span>
+            </div>
+            &nbsp;&nbsp;&nbsp;
+            <img src="/img/vs.png" style="height: 60px;vertical-align: middle">
+            &nbsp;&nbsp;&nbsp;
+            <div style="display: inline-block;border-bottom: 2px solid;height: 50px"
+                 v-bind:style="user.up===-1?'border-color: red':'border-color: white'">
+                <span v-bind:style="user.color===1?'color:black':'color:red'">{{user.opponentName==''?'未匹配':user.opponentName}}</span>
+            </div>
+        </div>
+        <div>
+        </div>
+    </div>
+    <div id="checkerboard">
+        <div class="o-frame">
+            <div class="i-frame">
+                <dl v-for="i in 4">
+                    <dt v-for="o in 8">
+                        <!--v-bind:style="i==4?'border-bottom-width: 1px;':''">-->
+                        <div v-if="i==1&&o==4||i==1&&o==5||i==2&&o==5||i==2&&o==4"
+                             v-bind:class="i==1&&o==5||i==2&&o==4?'diagonal-frame-r':'diagonal-frame-l'"></div>
+                    </dt>
+                </dl>
+                <div style="height: 60px;">
+                </div>
+                <dl v-for="i in 4">
+                    <dt v-for="o in 8">
+                        <div v-if="i==4&&o==4||i==4&&o==5||i==3&&o==5||i==3&&o==4"
+                             v-bind:class="i==4&&o==4||i==3&&o==5?'diagonal-frame-r':'diagonal-frame-l'"></div>
+                    </dt>
+                </dl>
+                <!---->
+                <div style="position: relative;top:-560px;left: -25px;width: 550px">
+                    <div v-for="y in 5" style="height: 58px" v-bind:key="y">
+                        <div class="piece" v-for="(id,x) in pieces[y-1]" v-bind:key="y+','+x"
+                             v-bind:class="id===0?'piece-v':''"
+                             v-bind:style="{color:id<20?'red':'black',borderColor:sel.x==x&&sel.y==y-1?'red':'black'}"
+                             v-on:click="choice(x,y-1)">
+                            <span>{{id==0?'':pieceName[id]}}</span>
+                        </div>
+                    </div>
+                    <div v-for="y in 5" style="height: 58px" v-bind:key="y+4">
+                        <div class="piece" v-for="(id,x) in pieces[y+4]" v-bind:key="(y+4)+','+x"
+                             style="margin-top: 10px;"
+                             v-bind:class="id===0?'piece-v':''"
+                             v-bind:style="{color:id<20?'red':'black',borderColor:sel.x==x&&sel.y==y+4?'red':'black'}"
+                             v-on:click="choice(x,y+4)">
+                            <span style="">{{id==0?'':pieceName[id]}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            socket: null,
+            chessId: '',
+            user: {
+                name: '',
+                color: -1,
+                opponentName: '',
+                up: -1,
+                end: 0
+            },
+            sel: {
+                x: -1,
+                y: -1,
+                ready: false
+            },
+            pieces: [
+                [22, 26, 28, 30, 21, 31, 29, 27, 23],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 24, 0, 0, 0, 0, 0, 24, 0],
+                [32, 0, 33, 0, 34, 0, 35, 0, 36],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [12, 0, 13, 0, 16, 0, 15, 0, 14],
+                [0, 4, 0, 0, 0, 0, 0, 5, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [2, 6, 8, 10, 1, 11, 9, 7, 3],
+            ],
+            pieceName: ['', '帅', '车', '车', '炮', '炮', '马', '马', '相', '相', '仕', '仕', '兵', '兵', '兵', '兵', '兵', '', '', '',
+                '', '将', '车', '车', '炮', '炮', '马', '马', '象', '象', '士', '士', '卒', '卒', '卒', '卒', '卒']
+        },
+        methods: {
+            choice(x, y) {
+                if (this.user.up === -1) {
+                    return;
+                }
+                if (!this.sel.ready) {
+                    if (this.pieces[y][x] === 0) {
+                        return;
+                    }
+                    if (this.user.color === 1) {
+                        if (this.pieces[y][x] > 20) {
+                            return;
+                        }
+                    } else {
+                        if (this.pieces[y][x] < 20) {
+                            return;
+                        }
+                    }
+                    this.sel.x = x;
+                    this.sel.y = y;
+                    this.sel.ready = true;
+                } else {
+                    if (this.sel.y === y && this.sel.x === x) {
+                        return;
+                    }
+                    this.dropOff(x, y);
+                    this.sel.x = -1;
+                    this.sel.y = -1;
+                    this.sel.ready = false;
+                    this.user.up = -1;
+                }
+            },
+            dropOff(newX, newY) {
+                this.socket.send(JSON.stringify({
+                    id: 1,
+                    data: {
+                        code: 1,
+                        userName: this.user.name,
+                        opponentName: this.user.opponentName,
+                        chessId: this.chessId,
+                        oldX: this.sel.x,
+                        oldY: this.user.color === 1 ? this.sel.y : Math.abs(this.sel.y - 9),
+                        newX: newX,
+                        newY: this.user.color === 1 ? newY : Math.abs(newY - 9),
+                    },
+                    msg: ''
+                }));
+            },
+            move(data) {
+                let oldX = data.oldX;
+                let oldY = this.user.color === 1 ? data.oldY : Math.abs(data.oldY - 9);
+                let newX = data.newX;
+                let newY = this.user.color === 1 ? data.newY : Math.abs(data.newY - 9);
+                this.$set(this.pieces[newY], newX, this.pieces[oldY][oldX]);
+                this.$set(this.pieces[oldY], oldX, 0);
+                if (data.take === 1 && this.user.color === 1
+                    || data.take === 0 && this.user.color === 0) {
+                    this.user.up = 1;
+                }
+            },
+            openSocket() {
+                if (this.socket == null) {
+                    var xmlhttp;
+                    if (window.XMLHttpRequest) {
+                        xmlhttp = new XMLHttpRequest();
+                    } else {
+                        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+                    }
+                    xmlhttp.onreadystatechange = function () {
+                        if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+                            let json = JSON.parse(xmlhttp.responseText);
+                            if (json.code === 200) {
+                                app.socket = new WebSocket('ws://' + json.data + ':8080/w/1/' + app.user.name);
+                                app.socket.onopen = app.onSuccess;
+                                app.socket.onclose = app.onClose;
+                                app.socket.onmessage = app.onMessage;
+                            }
+                        }
+                    };
+                    xmlhttp.open("GET", "/sv/ip", true);
+                    xmlhttp.send();
+                }
+            },
+            sendMessage(code) {
+                this.socket.send(JSON.stringify({
+                    id: 1,
+                    data: {
+                        code: code,
+                        userName: this.user.name,
+                        chessId: this.chessId,
+                        oldX: this.sel.x,
+                        oldY: this.sel.y,
+                        newX: this.sel.newX,
+                        newY: this.sel.newY
+                    },
+                    msg: ''
+                }));
+            },
+            onSuccess() {
+                console.log('连接成功...');
+                this.sendMessage(0);
+            },
+            onClose() {
+                console.log('连接关闭...');
+            },
+            onMessage(message) {
+                let result = JSON.parse(message.data);
+                switch (result.code) {
+                    case 1000:
+                        this.move(result.data);
+                        alert((result.data.end === 1 ? '红' : '黑') + '棋胜利');
+                        break;
+                    case 100:
+                        this.user.color = result.data.color;
+                        if (result.data.take === 1 && this.user.color === 1
+                            || result.data.take === 0 && this.user.color === 0) {
+                            this.user.up = 1;
+                        }
+                        break;
+                    case 101:
+                        this.user.opponentName = result.data.opponentName;
+                        if (this.user.color === -1) {
+                            this.user.color = 0;
+                            this.adjustPieces(this.pieces);
+                        }
+                        break;
+                    case 20: // 移动棋子
+                        this.move(result.data);
+                        break;
+                    case 21: // 错误的移动规则
+                        if (result.data.take === 1 && this.user.color === 1
+                            || result.data.take === 0 && this.user.color === 0) {
+                            this.user.up = 1;
+                        }
+                        break;
+                    case 40:
+                        this.user.color = result.data.color;
+                        this.user.opponentName = result.data.opponentName === undefined ? '' : result.data.opponentName;
+                        this.adjustPieces(result.data.chessData);
+                        if (result.data.take === 1 && this.user.color === 1
+                            || result.data.take === 0 && this.user.color === 0) {
+                            this.user.up = 1;
+                        }
+                        break;
+                    case 44:
+                        self.location.href = "/mate?name=" + this.user.name;
+                        break;
+                }
+                console.log(message.data)
+            },
+            adjustPieces(pieces) {
+                if (this.user.color === 1) {
+                    this.pieces = pieces;
+                } else {
+                    let temp = [];
+                    for (let y = 0; y < 10; y++) {
+                        temp.push(pieces[Math.abs(y - 9)]);
+                    }
+                    this.pieces = temp;
+                }
+            },
+            getUrlKey(name) {
+                return decodeURIComponent(
+                    (new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.href) || [, ""])[1].replace(/\+/g, '%20')) || null;
+            }
+        },
+        created() {
+            this.user.name = this.getUrlKey('name');
+            this.chessId = this.getUrlKey('chessId');
+            this.openSocket();
+        }
+    })
+</script>
+</body>
+</html>

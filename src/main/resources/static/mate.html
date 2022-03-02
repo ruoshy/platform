@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.9/vue.min.js"></script>
+    <link href="/css/cs.css" rel="stylesheet" type="text/css">
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="header">
+        <div>
+        </div>
+        <div style="width: 60%;margin: 0 auto;text-align: center;
+        font-size: 25px;font-weight: bold;line-height: 60px;">
+        </div>
+        <div style="width: 12%;text-align: right;padding-right: 7%">
+            <div style="width: 40px;height: 40px;border-radius: 20px;background: gainsboro">
+            </div>
+            <span style="font-size: 16px;">{{user.name}}</span>
+        </div>
+    </div>
+    <div style="width: 90%;text-align: right;margin-top: 20px;">
+        <button v-on:click="createMask">创建房间</button>
+    </div>
+    <div style="width: 80%;margin: 0 auto;">
+        <dl>
+            <dt v-for="chess in chessList" v-bind:key="chess.id" style="box-shadow: 1px 1px 3px gainsboro;
+                        display: inline-block;width: 200px;text-align: center;padding: 20px 0;margin: 20px">
+                <p>{{chess.name}}</p>
+                <button v-on:click="joinChess(chess.id)">加入房间</button>
+            </dt>
+        </dl>
+    </div>
+    <div class="mask" v-bind:style="mask.sw?'':'display: none'">
+        <div class="mask-bg" v-on:click="maskOk">
+        </div>
+        <div style="position: absolute;width: 300px;height: 140px;margin-left: 50%;left: -200px;
+    top: 20%;background: white;border-radius: 5px;box-shadow: 1px 1px 4px gray;padding: 20px 30px">
+            <div style="height: 80px;width: 100%;padding-top:20px;font-size: 20px;color: #17233d">
+                <input type="text" v-model="form.chessName" placeholder="请输入房间名" style="width: 250px;">
+                <br><span style="color: red;font-size: 13px">{{mask.message}}</span>
+            </div>
+            <div style="text-align: left">
+                <button type="submit" style="font-size: 16px" v-on:click="createChess">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            socket: null,
+            user: {
+                name: ''
+            },
+            form: {
+                chessName: ''
+            },
+            mask: {
+                sw: false,
+                message: ''
+            },
+            chessList: []
+        },
+        methods: {
+            getUrlKey(name) {
+                return decodeURIComponent(
+                    (new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.href) || [, ""])[1].replace(/\+/g, '%20')) || null;
+            },
+            maskOk() {
+                this.mask.sw = false;
+            },
+            createMask() {
+                this.mask.message = '';
+                this.mask.sw = true;
+            },
+            createChess() {
+                if (this.form.chessName === '' || this.form.length === 0) {
+                    this.mask.message = '请输入房间名称';
+                    return;
+                }
+                var xmlhttp;
+                if (window.XMLHttpRequest) {
+                    xmlhttp = new XMLHttpRequest();
+                } else {
+                    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                xmlhttp.onreadystatechange = function () {
+                    if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+                        let json = JSON.parse(xmlhttp.responseText);
+                        if (json.code === 200) {
+                            app.maskOk();
+                            app.getChessList();
+                        }
+                    }
+                };
+                xmlhttp.open("GET", "/chess/create?name=" + this.user.name + "&cname=" + this.form.chessName, true);
+                xmlhttp.send();
+            },
+            getChessList() {
+                var xmlhttp;
+                if (window.XMLHttpRequest) {
+                    xmlhttp = new XMLHttpRequest();
+                } else {
+                    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+                }
+                xmlhttp.onreadystatechange = function () {
+                    if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+                        let json = JSON.parse(xmlhttp.responseText);
+                        if (json.code === 200) {
+                            app.chessList = json.data;
+                        }
+                    }
+                };
+                xmlhttp.open("GET", "/chess/list?name=" + this.user.name, true);
+                xmlhttp.send();
+            },
+            joinChess(id) {
+                self.location.href = "/chess?name=" + this.user.name + "&chessId=" + id;
+            }
+        },
+        created() {
+            this.user.name = this.getUrlKey('name');
+            this.getChessList();
+            ///// socket
+            // var xmlhttp;
+            // if (window.XMLHttpRequest) {
+            //     xmlhttp = new XMLHttpRequest();
+            // } else {
+            //     xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+            // }
+            // xmlhttp.onreadystatechange = function () {
+            //     if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
+            //         let json = JSON.parse(xmlhttp.responseText);
+            //         if (json.code === 200) {
+            //             app.socket = new WebSocket('ws://' + json.data + ':8080/w/1/' + app.user.name);
+            //         }
+            //     }
+            // };
+            // xmlhttp.open("GET", "/sv/ip", true);
+            // xmlhttp.send();
+        }
+    })
+</script>
+</body>
+</html>
